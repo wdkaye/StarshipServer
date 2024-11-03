@@ -1,0 +1,6 @@
+@StarshipServer_HostAddress = http://localhost:5072
+
+GET {{StarshipServer_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
