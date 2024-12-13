@@ -13,9 +13,13 @@ namespace StarshipServer.Controllers
 
         private readonly ILogger<WeatherForecastController> _logger;
 
-        public WeatherForecastController(ILogger<WeatherForecastController> logger)
+        public WeatherForecastController(
+            ILogger<WeatherForecastController> logger,
+            IConfiguration configuration
+            )
         {
             _logger = logger;
+            var defaultLogLevel = configuration["Logging:LogLevel:Default"];
         }
 
         [HttpGet(Name = "GetWeatherForecast")]
