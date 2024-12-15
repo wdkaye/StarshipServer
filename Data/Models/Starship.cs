@@ -21,7 +21,7 @@ namespace StarshipServer.Data.Models
 
         public required string Name { get; set; }
 
-        public string Owner { get; set; }
+        public string Owner { get; set; } = null!;
 
         [ForeignKey(nameof(Hull))]
         public int HullId { get; set; }

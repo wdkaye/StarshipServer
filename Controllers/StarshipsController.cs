@@ -23,9 +23,19 @@ namespace StarshipServer.Controllers
 
         // GET: api/Starships
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<Starship>>> GetStarships()
+        public async Task<ActionResult<IList<StarshipDTO>>> GetStarships()
         {
-            return await _context.Starships.ToListAsync();
+            IQueryable<StarshipDTO> q = _context.Starships.Select(s => new StarshipDTO()
+            {
+                Name = s.Name,
+                HullName = s.Hull.Name,
+                ReactorName = s.Reactor.Name,
+                ThrusterName = s.Thruster.Name,
+                WeaponName = s.Weapon.Name,
+                MassTotal = s.Hull.Mass + s.Reactor.Mass + s.Thruster.Mass + s.Weapon.Mass
+            });
+            
+            return await q.ToListAsync();
         }
 
         // GET: api/Starships/5
