@@ -1,15 +1,23 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using StarshipServer.Data;
 using StarshipServer.Data.Models;
 
-namespace StarshipServer.Controllers
+namespace StarshipServer.Controllers // TODO namespace not in textbook?
 {
-    [Route("api/[controller]")]
+    [Route("api/[controller]/[action]")]
     [ApiController]
-    public class SeedController(ApplicationDbContext db, 
-        UserManager<ApplicationUser> userManager) : ControllerBase
+
+    public class SeedController(  // TODO this is dependency injection, but the book saves these as private readonly in a constructor.  Didn't have to do this in class tho.
+        ApplicationDbContext db,
+        RoleManager<IdentityRole> roleManager,
+        UserManager<ApplicationUser> userManager
+        // TODO use IWebHostEnvironment env if needed
+        // TODO use IConfiguration configuration if needed - this is needed to take default passwords from a secrets.json (which I'm not using yet)
+        ) : ControllerBase
     {
+
         [HttpPost("Users")]
         public async Task<IActionResult> ImportUsersAsync()
         {
@@ -26,146 +34,94 @@ namespace StarshipServer.Controllers
             }
 
             // If not found, this will create a user in the database.
+            // More direct form of textbook stuff.  Clearly the problem is that the DB doesn't exist.
             IdentityResult result = await userManager.CreateAsync(user, "Artoo-D2");
             user.EmailConfirmed = true;
             user.LockoutEnabled = false;
             await db.SaveChangesAsync();
+
             return Ok(user);
         }
-    }
 
-}
-
-/*
-﻿using Azure.Identity;
-using CsvHelper;
-using CsvHelper.Configuration;
-using DataModel;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using MyWebAPI.Data;
-using System;
-using System.Globalization;
-
-namespace MyWebAPI.Controllers
-{
-    [Route("api/[controller]")]
-    [ApiController]
-    public class SeedController(WorldCitiesContext db, IHostEnvironment environment,
-        UserManager<AppUser> userManager) : ControllerBase
-    {
-        private readonly string _pathName = Path.Combine(environment.ContentRootPath, "Data/worldcities.csv");
-
-        [HttpPost("Countries")]
-        public async Task<IActionResult> ImportCountriesAsync()
+        [HttpGet]
+        public async Task<ActionResult> CreateDefaultUsers()
         {
-            // create a lookup dictionary containing all the countries already existing 
-            // into the Database (it will be empty on first run).
-            Dictionary<string, Country> countriesByName = db.Countries
-                .AsNoTracking().ToDictionary(x => x.Name, StringComparer.OrdinalIgnoreCase);
+            // setup the default role names
+            string role_RegisteredUser = "RegisteredUser";
+            string role_Administrator = "Administrator";
 
-            CsvConfiguration config = new(CultureInfo.InvariantCulture)
+            // create the default roles (if they don't exist yet)
+            if (await roleManager.FindByNameAsync(role_RegisteredUser) == null)
+                await roleManager.CreateAsync(new
+                 IdentityRole(role_RegisteredUser));
+            if (await roleManager.FindByNameAsync(role_Administrator) == null)
+                await roleManager.CreateAsync(new
+                 IdentityRole(role_Administrator));
+
+            // create a list to track the newly added users
+            var addedUserList = new List<ApplicationUser>();
+            // check if the admin user already exists
+            var email_Admin = "yoda@jedi.com";
+            if (await userManager.FindByNameAsync(email_Admin) == null)
             {
-                HasHeaderRecord = true,
-                HeaderValidated = null
-            };
-
-            using StreamReader reader = new(_pathName);
-            using CsvReader csv = new(reader, config);
-
-            List<WorldCitiesCSV> records = csv.GetRecords<WorldCitiesCSV>().ToList();
-            foreach (WorldCitiesCSV record in records)
-            {
-                if (countriesByName.ContainsKey(record.country))
+                // create a new admin ApplicationUser account
+                var user_Admin = new ApplicationUser()
                 {
-                    continue;
-                }
-
-                Country country = new()
-                {
-                    Name = record.country,
-                    Iso2 = record.iso2,
-                    Iso3 = record.iso3
+                    SecurityStamp = Guid.NewGuid().ToString(),
+                    UserName = email_Admin,
+                    Email = email_Admin,
                 };
-                await db.Countries.AddAsync(country);
-                countriesByName.Add(record.country, country);
+
+                // TODO insert the admin user into the DB
+                await userManager.CreateAsync(user_Admin, "Artoo-D2");
+
+                // assign the "RegisteredUser" and "Administrator" roles
+                await userManager.AddToRoleAsync(user_Admin, role_RegisteredUser);
+                await userManager.AddToRoleAsync(user_Admin, role_Administrator);
+
+                // confirm the e-mail and remove lockout
+                user_Admin.EmailConfirmed = true;
+                user_Admin.LockoutEnabled = false;
+
+                // add the admin user to the added users list
+                addedUserList.Add(user_Admin);
             }
-
-            await db.SaveChangesAsync();
-
-            return new JsonResult(countriesByName.Count);
-        }
-
-        [HttpPost("Cities")]
-        public async Task<IActionResult> ImportCitiesAsync()
-        {
-            Dictionary<string, Country> countries = await db.Countries //.AsNoTracking()
-                .ToDictionaryAsync(c => c.Name);
-
-            CsvConfiguration config = new(CultureInfo.InvariantCulture)
+            // check if the standard user already exists
+            var email_User = "luke@jedi.com";
+            if (await userManager.FindByNameAsync(email_User) == null)
             {
-                HasHeaderRecord = true,
-                HeaderValidated = null
-            };
-            int cityCount = 0;
-            using (StreamReader reader = new(_pathName))
-            using (CsvReader csv = new(reader, config))
-            {
-                IEnumerable<WorldCitiesCSV>? records = csv.GetRecords<WorldCitiesCSV>();
-                foreach (WorldCitiesCSV record in records)
+                // create a new standard ApplicationUser account
+                var user_User = new ApplicationUser()
                 {
-                    if (!countries.TryGetValue(record.country, out Country? value))
-                    {
-                        Console.WriteLine($"Not found country for {record.city}");
-                        return NotFound(record);
-                    }
+                    SecurityStamp = Guid.NewGuid().ToString(),
+                    UserName = email_User,
+                    Email = email_User
+                };
 
-                    if (!record.population.HasValue || string.IsNullOrEmpty(record.city_ascii))
-                    {
-                        Console.WriteLine($"Skipping {record.city}");
-                        continue;
-                    }
-                    City city = new()
-                    {
-                        Name = record.city,
-                        Latitude = record.lat,
-                        Longitude = record.lng,
-                        Population = (int)record.population.Value,
-                        CountryId = value.Id
-                    };
-                    db.Cities.Add(city);
-                    cityCount++;
-                }
+                // insert the standard user into the DB
+                await userManager.CreateAsync(user_User, "Artoo-D2");
+
+                // assign the "RegisteredUser" role
+                await userManager.AddToRoleAsync(user_User, role_RegisteredUser);
+                // confirm the e-mail and remove lockout
+                user_User.EmailConfirmed = true;
+                user_User.LockoutEnabled = false;
+
+                // add the standard user to the added users list
+                addedUserList.Add(user_User);
+            }
+
+            // if we added at least one user, persist the changes into the DB
+            if (addedUserList.Count > 0)
                 await db.SaveChangesAsync();
-            }
-            return new JsonResult(cityCount);
-        }
 
-        [HttpPost("Users")]
-        public async Task<IActionResult> ImportUsersAsync()
-        {
-            (string name, string email) = ("JohnBarleycorn", "nobody@nope.com");
-            AppUser user = new AppUser()
+            return new JsonResult(new
             {
-                UserName = name,
-                Email = email,
-                SecurityStamp = Guid.NewGuid().ToString()
-            };
-            if (await userManager.FindByEmailAsync(email) is not null)
-            {
-                return Ok(user);
-            }
+                Count = addedUserList.Count,
+                Users = addedUserList
+            });
 
-            // If not found, this will create a user in the database.
-            IdentityResult result = await userManager.CreateAsync(user, "Ab-45678");
-            user.EmailConfirmed = true;
-            user.LockoutEnabled = false;
-            await db.SaveChangesAsync();
-            return Ok(user);
         }
     }
-}
 
-*/ 
+}
