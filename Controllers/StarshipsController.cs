@@ -25,13 +25,13 @@ namespace StarshipServer.Controllers
         [HttpGet]
         public async Task<ActionResult<IList<StarshipDTO>>> GetStarships()
         {
-            IQueryable<StarshipDTO> q = _context.Starships.Select(s => new StarshipDTO()
+            IQueryable<StarshipDTO> q = _context.Starships.Select(static s => new StarshipDTO()
             {
                 Name = s.Name,
-                HullName = s.Hull.Name,
-                ReactorName = s.Reactor.Name,
-                ThrusterName = s.Thruster.Name,
-                WeaponName = s.Weapon.Name,
+                HullName = s.Hull!.Name,  // Throws null pointer?
+                ReactorName = s.Reactor!.Name,
+                ThrusterName = s.Thruster!.Name,
+                WeaponName = s.Weapon!.Name,
                 MassTotal = s.Hull.Mass + s.Reactor.Mass + s.Thruster.Mass + s.Weapon.Mass
             });
             
