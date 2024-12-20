@@ -5,11 +5,11 @@
     "anonymousAuthentication": true,
     "iisExpress": {
       "applicationUrl": "http://localhost:40080",
-      "sslPort": 40443
+      "sslPort": 443
     }
   },
   "profiles": {
-    "http": {
+    "http-only": {
         "commandName": "Project",
         "dotnetRunMessages": true,
         "launchBrowser": true,
@@ -19,7 +19,17 @@
             "ASPNETCORE_ENVIRONMENT": "Development"
         }
     },
-    "https": {
+    "https-only": {
+        "commandName": "Project",
+        "dotnetRunMessages": true,
+        "launchBrowser": true,
+        "launchUrl": "swagger",
+        "applicationUrl": "https://localhost:40443",
+        "environmentVariables": {
+            "ASPNETCORE_ENVIRONMENT": "Development"
+        }
+    },
+    "StarshipServer": {
         "commandName": "Project",
         "dotnetRunMessages": true,
         "launchBrowser": true,
@@ -28,10 +38,11 @@
         "environmentVariables": {
             "ASPNETCORE_ENVIRONMENT": "Development"
         }
+    }
     },
     "IIS Express": {
       "commandName": "IISExpress",
-      "launchBrowser": true,
+      "launchBrowser": false,
       "launchUrl": "swagger",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
